@@ -49,7 +49,7 @@ require_env INFERENCE_HOST
 
 SSH_USER="${SSH_USER:-ubuntu}"
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-64}"
-DEPLOY_ROOT="/opt/alchemyst-ai/may-2026/devops"
+DEPLOY_ROOT="/opt/aws-distributed-inference"
 
 require_cmd ssh
 require_cmd scp

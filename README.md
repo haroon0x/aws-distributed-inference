@@ -20,7 +20,7 @@ Start here, then use the supporting docs as needed:
 | [docs/runbook.md](docs/runbook.md) | Operational commands: smoke tests, SSH through gateway, service logs, restarts, common issues. |
 | [docs/security.md](docs/security.md) | Public/private exposure, security group rules, NAT behavior, secrets policy, hardening notes. |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Detailed implementation notes, verified local/AWS smoke results, and rationale. |
-| [concern.md](concern.md) | Automated deploy script assumptions, failure modes, manual fallback, and IP-change behavior. |
+| [deploy-guide.md](deploy-guide.md) | Automated deploy script assumptions, failure modes, manual fallback, and IP-change behavior. |
 
 ## Live Deployment
 
@@ -231,7 +231,7 @@ Local verification completed with iii `0.12.0`, TypeScript build, Python 3.12 vi
 
    The script configures nginx, copies the repo through the gateway, installs dependencies, enables systemd services, and waits for iii functions to register.
 
-6. If the automated script fails in a fresh environment, use [concern.md](concern.md). It explains the script assumptions and gives a manual fallback with SSH/debuggable steps.
+6. If the automated script fails in a fresh environment, use [deploy-guide.md](deploy-guide.md). It explains the script assumptions and gives a manual fallback with SSH/debuggable steps.
 
 7. Verify the deployment:
 

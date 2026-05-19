@@ -6,9 +6,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/opt/alchemyst-ai/may-2026/devops/quickstart/workers/inference-worker
+WorkingDirectory=/opt/aws-distributed-inference/quickstart/workers/inference-worker
 EnvironmentFile=/etc/alchemyst/inference-worker.env
-ExecStart=/opt/alchemyst-ai/may-2026/devops/quickstart/workers/inference-worker/.venv/bin/python inference_worker.py
+ExecStart=/opt/aws-distributed-inference/quickstart/workers/inference-worker/.venv/bin/python inference_worker.py
 Restart=always
 RestartSec=5
 

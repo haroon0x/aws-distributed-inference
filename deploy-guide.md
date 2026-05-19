@@ -1,4 +1,4 @@
-# Deployment Script Notes
+# Deployment Guide & Troubleshooting
 
 `scripts/deploy-workers.sh` is intended to automate the post-Terraform deployment step:
 
@@ -29,7 +29,7 @@ The script assumes:
 - Gateway can SSH to private VMs through the VPC.
 - Local machine has Linux x86_64 `iii` and `iii-worker` binaries installed.
 - Remote VMs are Ubuntu 24.04 x86_64.
-- Deployment path is `/opt/alchemyst-ai/may-2026/devops`, matching the systemd units.
+- Deployment path is `/opt/aws-distributed-inference`, matching the systemd units.
 
 If an evaluator runs from macOS/Windows/ARM, local `iii` binaries may not be compatible with the Linux x86_64 VMs. In that case, use the manual fallback below or install iii directly on each VM with the official installer.
 
@@ -79,7 +79,7 @@ If `deploy-workers.sh` does not work in a fresh environment, use the same steps 
 1. Copy the repo to all three private VMs under:
 
    ```text
-   /opt/alchemyst-ai/may-2026/devops
+   /opt/aws-distributed-inference
    ```
 
 2. Install `iii` and `iii-worker` on engine, caller, and inference VMs:
@@ -93,8 +93,8 @@ If `deploy-workers.sh` does not work in a fresh environment, use the same steps 
 3. On the engine VM:
 
    ```bash
-   cd /opt/alchemyst-ai/may-2026/devops/quickstart
-   sudo cp /opt/alchemyst-ai/may-2026/devops/deploy/systemd/iii-engine.service /etc/systemd/system/iii-engine.service
+   cd /opt/aws-distributed-inference/quickstart
+   sudo cp /opt/aws-distributed-inference/deploy/systemd/iii-engine.service /etc/systemd/system/iii-engine.service
    sudo systemctl daemon-reload
    sudo systemctl enable --now iii-engine.service
    ```
@@ -104,11 +104,11 @@ If `deploy-workers.sh` does not work in a fresh environment, use the same steps 
    ```bash
    sudo apt-get update
    sudo apt-get install -y nodejs npm
-   cd /opt/alchemyst-ai/may-2026/devops/quickstart/workers/caller-worker
+   cd /opt/aws-distributed-inference/quickstart/workers/caller-worker
    npm install
    npm run build
    printf 'III_URL=ws://<engine-private-ip>:49134\nMODEL_ID=ggml-org/gemma-3-270m-GGUF\n' | sudo tee /etc/alchemyst/caller-worker.env
-   sudo cp /opt/alchemyst-ai/may-2026/devops/deploy/systemd/caller-worker.service /etc/systemd/system/caller-worker.service
+   sudo cp /opt/aws-distributed-inference/deploy/systemd/caller-worker.service /etc/systemd/system/caller-worker.service
    sudo systemctl daemon-reload
    sudo systemctl enable --now caller-worker.service
    ```
@@ -119,12 +119,12 @@ If `deploy-workers.sh` does not work in a fresh environment, use the same steps 
    sudo apt-get update
    sudo apt-get install -y python3.12 python3.12-venv curl
    curl -LsSf https://astral.sh/uv/install.sh | sh
-   cd /opt/alchemyst-ai/may-2026/devops/quickstart/workers/inference-worker
+   cd /opt/aws-distributed-inference/quickstart/workers/inference-worker
    ~/.local/bin/uv venv --python 3.12 --clear
    . .venv/bin/activate
    ~/.local/bin/uv pip install -r requirements.txt
    printf 'III_URL=ws://<engine-private-ip>:49134\nMAX_NEW_TOKENS=64\nMODEL_ID=ggml-org/gemma-3-270m-GGUF\nGGUF_FILE=gemma-3-270m-Q8_0.gguf\n' | sudo tee /etc/alchemyst/inference-worker.env
-   sudo cp /opt/alchemyst-ai/may-2026/devops/deploy/systemd/inference-worker.service /etc/systemd/system/inference-worker.service
+   sudo cp /opt/aws-distributed-inference/deploy/systemd/inference-worker.service /etc/systemd/system/inference-worker.service
    sudo systemctl daemon-reload
    sudo systemctl enable --now inference-worker.service
    ```
