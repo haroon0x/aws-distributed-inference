@@ -1,6 +1,42 @@
 # AWS Distributed Inference
 
-Private AWS worker mesh for the `quickstart` distributed inference prototype. A public gateway exposes a JSON API while TypeScript and Python workers communicate over iii RPC inside a private subnet.
+Private AWS worker mesh for the `quickstart` distributed inference prototype. A public gateway exposes a JSON API, while TypeScript and Python workers communicate over iii RPC inside a private subnet.
+
+## What This Includes
+
+- Terraform for VPC, public/private subnets, NAT gateway, EC2 instances, routes, and security groups.
+- A public API gateway VM running nginx.
+- Private engine, caller-worker, and inference-worker VMs.
+- systemd units for iii engine and both workers.
+- Smoke tests, runbook, security notes, and redeploy instructions.
+
+## Documentation Map
+
+Start here, then use the supporting docs as needed:
+
+| Document | Purpose |
+| --- | --- |
+| [docs/architecture.md](docs/architecture.md) | Rendered Mermaid architecture diagram, request flow, and network boundaries. |
+| [docs/runbook.md](docs/runbook.md) | Operational commands: smoke tests, SSH through gateway, service logs, restarts, common issues. |
+| [docs/security.md](docs/security.md) | Public/private exposure, security group rules, NAT behavior, secrets policy, hardening notes. |
+| [docs/implementation-plan.md](docs/implementation-plan.md) | Detailed implementation notes, verified local/AWS smoke results, and rationale. |
+| [concern.md](concern.md) | Automated deploy script assumptions, failure modes, manual fallback, and IP-change behavior. |
+
+## Live Deployment
+
+The current stack is running in `ap-south-1`.
+
+```text
+API base URL:       http://13.206.255.84
+API endpoint:       http://13.206.255.84/v1/chat/completions
+Gateway DNS:        ec2-13-206-255-84.ap-south-1.compute.amazonaws.com
+Gateway private IP: 10.40.1.194
+Engine private IP:  10.40.10.121
+Caller private IP:  10.40.10.173
+Inference private:  10.40.10.29
+```
+
+Only the gateway has a public IP. The engine, caller worker, and inference worker are private-subnet instances with no public IPs.
 
 ## Architecture
 
@@ -30,14 +66,12 @@ Internet
   Python Gemma GGUF inference worker
 ```
 
-Only `api-gateway-vm` has a public endpoint. Worker and engine security groups only allow VPC-internal traffic.
-
 ## JSON API
 
-Request:
+Live request:
 
 ```bash
-curl -sS -X POST http://ec2-13-206-255-84.ap-south-1.compute.amazonaws.com/v1/chat/completions \
+curl -sS -X POST http://13.206.255.84/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Say hello in one short sentence."}]}'
 ```
@@ -46,7 +80,7 @@ Sample response shape:
 
 ```json
 {
-  "id": "chatcmpl-1779190000000",
+  "id": "chatcmpl-1779213923303",
   "object": "chat.completion",
   "model": "ggml-org/gemma-3-270m-GGUF",
   "choices": [
@@ -54,12 +88,34 @@ Sample response shape:
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "Hello, I am ready to help."
+        "content": "..."
       },
       "finish_reason": "stop"
     }
   ]
 }
+```
+
+## Quick Verification
+
+```bash
+make health
+make smoke
+make status
+```
+
+Equivalent direct smoke test:
+
+```bash
+./scripts/smoke-test.sh http://13.206.255.84
+```
+
+Verified during deployment:
+
+```text
+make health -> ok
+make smoke  -> Smoke test passed
+make status -> gateway public, engine/caller/inference private-only and running
 ```
 
 ## Local Setup
@@ -95,28 +151,28 @@ uv pip install -r requirements.txt
 python -m compileall inference_worker.py
 ```
 
-Run locally:
+Run local engine:
 
 ```bash
 cd quickstart
 iii --config config.yaml
 ```
 
-In another terminal:
+Run local inference worker:
 
 ```bash
 cd quickstart/workers/inference-worker
 III_URL=ws://localhost:49134 MAX_NEW_TOKENS=64 python inference_worker.py
 ```
 
-In another terminal:
+Run local caller worker:
 
 ```bash
 cd quickstart/workers/caller-worker
 III_URL=ws://localhost:49134 npm run dev
 ```
 
-Then call:
+Local curl:
 
 ```bash
 curl -sS -X POST http://127.0.0.1:3111/v1/chat/completions \
@@ -126,69 +182,7 @@ curl -sS -X POST http://127.0.0.1:3111/v1/chat/completions \
 
 Local verification completed with iii `0.12.0`, TypeScript build, Python 3.12 via `uv`, and an end-to-end curl response from the model path.
 
-## AWS Verification
-
-Deployment verified in `ap-south-1`:
-
-```text
-gateway public DNS: ec2-13-206-255-84.ap-south-1.compute.amazonaws.com
-gateway public IP:  13.206.255.84
-engine private IP:  10.40.10.121
-caller private IP:  10.40.10.173
-inference private IP: 10.40.10.29
-```
-
-The worker VMs have no public IPs. Public traffic enters only through the gateway VM on port 80.
-
-Verified public curl:
-
-```bash
-curl -sS -X POST http://13.206.255.84/v1/chat/completions \
-  -H 'Content-Type: application/json' \
-  -d '{"messages":[{"role":"user","content":"Say hello in one short sentence."}]}'
-```
-
-Observed response shape:
-
-```json
-{
-  "choices": [
-    {
-      "finish_reason": "stop",
-      "index": 0,
-      "message": {
-        "content": "Say hlelo in oone short sentence.\nThe word \"hallel\" is used in the Bible to mean \"peace\" or \"joy.\" It is a\nHebrew word that means \"to be glad.\"\nThe word \"hallel\" is also used in the Old Testament to mean",
-        "role": "assistant"
-      }
-    }
-  ],
-  "id": "chatcmpl-1779213923303",
-  "model": "ggml-org/gemma-3-270m-GGUF",
-  "object": "chat.completion"
-}
-```
-
-Inference uses `c7i-flex.large` because this AWS account rejects `t3.medium` as not free-tier-eligible, while `t3.micro`/`t3.small` have too little memory headroom for the model load. Observed inference worker memory after load: about 1.8 GiB current, 2.7 GiB peak.
-
-Quick verification commands:
-
-```bash
-make health
-make smoke
-make status
-```
-
-Operational docs:
-
-```text
-docs/architecture.md
-docs/runbook.md
-docs/security.md
-docs/implementation-plan.md
-concern.md
-```
-
-## AWS Redeploy From Scratch
+## Redeploy From Scratch
 
 1. Configure AWS credentials:
 
@@ -198,37 +192,35 @@ concern.md
 
 2. Install Terraform.
 
-3. Create `infra/terraform/terraform.tfvars`:
+3. Create `infra/terraform/terraform.tfvars` from the example:
+
+   ```bash
+   cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
+   ```
+
+   Fill in values for your AWS account:
 
    ```hcl
-   aws_region       = "us-east-1"
+   aws_region       = "ap-south-1"
    project_name     = "alchemyst-devops"
    key_name         = "your-existing-ec2-keypair"
    allowed_ssh_cidr = "YOUR_PUBLIC_IP/32"
    ```
 
-4. Provision:
+4. Provision infrastructure:
 
    ```bash
    cd infra/terraform
    terraform init
    terraform validate
    terraform apply
-   ```
-
-5. Read the Terraform outputs:
-
-   ```bash
    terraform output
    ```
 
-   The output IPs are the source of truth for each deployment. Public and private IPs can change after `terraform destroy` and a fresh `terraform apply`.
-
-6. Deploy app code and systemd services.
-
-   Preferred automated path:
+5. Deploy workers with the automated script:
 
    ```bash
+   cd ../..
    KEY_PATH=/path/to/key.pem \
    GATEWAY_HOST=<gateway-public-ip> \
    ENGINE_HOST=<engine-private-ip> \
@@ -237,11 +229,11 @@ concern.md
    ./scripts/deploy-workers.sh
    ```
 
-   This script configures nginx, copies the repo through the gateway, installs worker dependencies, enables systemd services, and waits for iii functions to register.
+   The script configures nginx, copies the repo through the gateway, installs dependencies, enables systemd services, and waits for iii functions to register.
 
-7. If the automated script fails in a fresh environment, use the manual fallback in [concern.md](concern.md). The fallback is the same deployment flow split into SSH/debuggable steps.
+6. If the automated script fails in a fresh environment, use [concern.md](concern.md). It explains the script assumptions and gives a manual fallback with SSH/debuggable steps.
 
-8. Verify:
+7. Verify the deployment:
 
    ```bash
    ./scripts/smoke-test.sh http://<gateway-public-ip>
@@ -249,15 +241,31 @@ concern.md
 
 ## IP Address Stability
 
-The current live URL is:
+The current live endpoint stays valid while the current gateway EC2 instance is running:
 
 ```text
 http://13.206.255.84/v1/chat/completions
 ```
 
-This IP stays valid while the current gateway instance is running. If the stack is destroyed and recreated, AWS may assign new public and private IPs. Run `terraform output` after each new apply and use those values in the README/curl/deploy script.
+If `terraform destroy` and a fresh `terraform apply` are run, AWS may assign new public and private IPs. Always run:
 
-For a longer-lived deployment, attach an Elastic IP or Route 53 DNS record to the gateway.
+```bash
+cd infra/terraform
+terraform output
+```
+
+Use those output values for `GATEWAY_HOST`, `ENGINE_HOST`, `CALLER_HOST`, `INFERENCE_HOST`, and the public curl command. For a longer-lived deployment, attach an Elastic IP or Route 53 DNS record to the gateway.
+
+## Instance Choices
+
+```text
+gateway:   t3.micro
+engine:    t3.micro
+caller:    t3.micro
+inference: c7i-flex.large
+```
+
+The inference worker uses `c7i-flex.large` because this AWS account rejected `t3.medium` as not free-tier-eligible, while `t3.micro`/`t3.small` have too little memory headroom for model loading. Observed inference worker memory after load: about 1.8 GiB current, 2.7 GiB peak.
 
 ## Production Hardening
 
@@ -266,3 +274,12 @@ Before production, add TLS with ACM or certbot, authentication on the API, reque
 ## If Model Were 100x Larger
 
 Use GPU instances or managed inference instead of CPU EC2. Store model weights in S3/EFS or a model registry, preload on boot, and keep warm replicas behind a queue. Split API and inference scaling: many stateless caller workers, fewer expensive inference workers. Add batching, streaming responses, autoscaling on queue depth/GPU utilization, and possibly tensor/model parallelism if one model does not fit on one device.
+
+## Teardown
+
+Destroy the stack when evaluation is complete to stop AWS costs:
+
+```bash
+cd infra/terraform
+terraform destroy
+```
