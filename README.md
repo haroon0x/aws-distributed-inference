@@ -1,6 +1,6 @@
-# DevOps Internship Assignment - AWS Plan
+# AWS Distributed Inference
 
-This directory contains the AWS deployment work for the `quickstart` distributed inference prototype.
+Private AWS worker mesh for the `quickstart` distributed inference prototype. A public gateway exposes a JSON API while TypeScript and Python workers communicate over iii RPC inside a private subnet.
 
 ## Architecture
 
