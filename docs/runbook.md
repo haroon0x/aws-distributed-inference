@@ -69,6 +69,8 @@ inference: 10.40.10.29
 
 ## Services
 
+For redeploys, use [../deploy-guide.md](../deploy-guide.md). It documents the full primary deployment flow plus the secondary automated script.
+
 Engine VM:
 
 ```bash

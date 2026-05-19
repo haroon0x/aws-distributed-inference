@@ -61,7 +61,7 @@ curl -> nginx gateway -> iii-http trigger -> caller-worker -> iii engine RPC -> 
 
 1. Run local dependency checks.
    ```bash
-   cd may-2026/devops/quickstart/workers/caller-worker
+   cd quickstart/workers/caller-worker
    npm install
    npm run build
 
@@ -75,17 +75,17 @@ curl -> nginx gateway -> iii-http trigger -> caller-worker -> iii engine RPC -> 
 2. Local smoke test.
    Terminal 1:
    ```bash
-   cd may-2026/devops/quickstart
+   cd quickstart
    iii --config config.yaml
    ```
    Terminal 2:
    ```bash
-   cd may-2026/devops/quickstart/workers/inference-worker
+   cd quickstart/workers/inference-worker
    III_URL=ws://localhost:49134 MAX_NEW_TOKENS=64 python inference_worker.py
    ```
    Terminal 3:
    ```bash
-   cd may-2026/devops/quickstart/workers/caller-worker
+   cd quickstart/workers/caller-worker
    III_URL=ws://localhost:49134 npm run dev
    ```
    Terminal 4:

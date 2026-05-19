@@ -20,7 +20,7 @@ Start here, then use the supporting docs as needed:
 | [docs/runbook.md](docs/runbook.md) | Operational commands: smoke tests, SSH through gateway, service logs, restarts, common issues. |
 | [docs/security.md](docs/security.md) | Public/private exposure, security group rules, NAT behavior, secrets policy, hardening notes. |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Detailed implementation notes, verified local/AWS smoke results, and rationale. |
-| [deploy-guide.md](deploy-guide.md) | Automated deploy script assumptions, failure modes, manual fallback, and IP-change behavior. |
+| [deploy-guide.md](deploy-guide.md) | Full primary deployment steps, secondary automated deploy path, assumptions, failure modes, and IP-change behavior. |
 
 ## Live Deployment
 
@@ -184,6 +184,8 @@ Local verification completed with iii `0.12.0`, TypeScript build, Python 3.12 vi
 
 ## Redeploy From Scratch
 
+Use Terraform for infrastructure, then use [deploy-guide.md](deploy-guide.md) for the deployment steps. The guide contains the full manual deployment flow and a secondary automated script option.
+
 1. Configure AWS credentials:
 
    ```bash
@@ -217,23 +219,17 @@ Local verification completed with iii `0.12.0`, TypeScript build, Python 3.12 vi
    terraform output
    ```
 
-5. Deploy workers with the automated script:
+5. Deploy the application:
 
    ```bash
    cd ../..
-   KEY_PATH=/path/to/key.pem \
-   GATEWAY_HOST=<gateway-public-ip> \
-   ENGINE_HOST=<engine-private-ip> \
-   CALLER_HOST=<caller-private-ip> \
-   INFERENCE_HOST=<inference-private-ip> \
-   ./scripts/deploy-workers.sh
    ```
 
-   The script configures nginx, copies the repo through the gateway, installs dependencies, enables systemd services, and waits for iii functions to register.
+   Primary method: follow [deploy-guide.md](deploy-guide.md). It documents gateway nginx setup, repo copy, iii installation, service env files, systemd units, restarts, and verification.
 
-6. If the automated script fails in a fresh environment, use [deploy-guide.md](deploy-guide.md). It explains the script assumptions and gives a manual fallback with SSH/debuggable steps.
+   Secondary method: run `scripts/deploy-workers.sh`. It automates the same post-Terraform work, but it depends on local Linux x86_64 `iii` binaries and SSH copy behavior.
 
-7. Verify the deployment:
+6. Verify the deployment:
 
    ```bash
    ./scripts/smoke-test.sh http://<gateway-public-ip>

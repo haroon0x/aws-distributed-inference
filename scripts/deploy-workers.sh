@@ -54,6 +54,7 @@ DEPLOY_ROOT="/opt/aws-distributed-inference"
 require_cmd ssh
 require_cmd scp
 require_cmd tar
+require_cmd sha256sum
 
 if [[ ! -f "${KEY_PATH}" ]]; then
   echo "KEY_PATH does not exist: ${KEY_PATH}" >&2
@@ -92,11 +93,42 @@ scp_gateway() {
   scp "${SSH_COMMON[@]}" "$@"
 }
 
+scp_binary_gateway() {
+  local src="$1"
+  local dst="$2"
+  local installed="/tmp/$(basename "${dst}")"
+  local local_hash
+  local_hash="$(sha256sum "${src}" | awk '{print $1}')"
+
+  if ssh_gateway "test -f '${installed}' && test \"\$(sha256sum '${installed}' | cut -d ' ' -f 1)\" = '${local_hash}'"; then
+    echo "Skipping unchanged binary ${installed} on gateway"
+    return
+  fi
+
+  scp_gateway "${src}" "${SSH_USER}@${GATEWAY_HOST}:${dst}"
+}
+
 scp_private() {
   local src="$1"
   local host="$2"
   local dst="$3"
   scp "${SSH_COMMON[@]}" -o ProxyCommand="${PROXY_COMMAND}" "${src}" "${SSH_USER}@${host}:${dst}"
+}
+
+scp_binary_private() {
+  local src="$1"
+  local host="$2"
+  local dst="$3"
+  local installed="/usr/local/bin/$(basename "${dst}")"
+  local local_hash
+  local_hash="$(sha256sum "${src}" | awk '{print $1}')"
+
+  if ssh_private "${host}" "test -f '${installed}' && test \"\$(sha256sum '${installed}' | cut -d ' ' -f 1)\" = '${local_hash}'"; then
+    echo "Skipping unchanged binary ${installed} on ${host}"
+    return
+  fi
+
+  scp_private "${src}" "${host}" "${dst}"
 }
 
 local_iii="$(command -v iii || true)"
@@ -123,7 +155,9 @@ tar \
   .
 
 echo "Copying archive and iii binaries to gateway"
-scp_gateway "${ARCHIVE}" "${local_iii}" "${local_iii_worker}" "${SSH_USER}@${GATEWAY_HOST}:/tmp/"
+scp_gateway "${ARCHIVE}" "${SSH_USER}@${GATEWAY_HOST}:/tmp/"
+scp_binary_gateway "${local_iii}" "/tmp/iii"
+scp_binary_gateway "${local_iii_worker}" "/tmp/iii-worker"
 
 echo "Installing gateway nginx config"
 ssh_gateway "set -euo pipefail
@@ -156,16 +190,20 @@ sudo systemctl restart nginx"
 for host in "${ENGINE_HOST}" "${CALLER_HOST}" "${INFERENCE_HOST}"; do
   echo "Copying archive and iii binaries to ${host}"
   scp_private "${ARCHIVE}" "${host}" "${REMOTE_ARCHIVE}"
-  scp_private "${local_iii}" "${host}" "/tmp/iii"
-  scp_private "${local_iii_worker}" "${host}" "/tmp/iii-worker"
+  scp_binary_private "${local_iii}" "${host}" "/tmp/iii"
+  scp_binary_private "${local_iii_worker}" "${host}" "/tmp/iii-worker"
 
   echo "Installing base files on ${host}"
   ssh_private "${host}" "set -euo pipefail
 sudo rm -rf '${DEPLOY_ROOT}'
 sudo mkdir -p '${DEPLOY_ROOT}' /usr/local/bin /etc/alchemyst
 sudo tar -xzf '${REMOTE_ARCHIVE}' -C '${DEPLOY_ROOT}'
-sudo install -m 0755 /tmp/iii /usr/local/bin/iii
-sudo install -m 0755 /tmp/iii-worker /usr/local/bin/iii-worker
+if [ -f /tmp/iii ]; then
+  sudo install -m 0755 /tmp/iii /usr/local/bin/iii
+fi
+if [ -f /tmp/iii-worker ]; then
+  sudo install -m 0755 /tmp/iii-worker /usr/local/bin/iii-worker
+fi
 sudo chown -R ${SSH_USER}:${SSH_USER} '${DEPLOY_ROOT}'
 rm -f '${REMOTE_ARCHIVE}' /tmp/iii /tmp/iii-worker
 iii --version"
@@ -213,7 +251,7 @@ python -m compileall inference_worker.py
   echo 'MODEL_ID=ggml-org/gemma-3-270m-GGUF'
   echo 'GGUF_FILE=gemma-3-270m-Q8_0.gguf'
 } | sudo tee /etc/alchemyst/inference-worker.env >/dev/null
-sudo cp '${PROJECT_DIR}/devops/deploy/systemd/inference-worker.service' /etc/systemd/system/inference-worker.service
+sudo cp '${DEPLOY_ROOT}/deploy/systemd/inference-worker.service' /etc/systemd/system/inference-worker.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now inference-worker.service
 sudo systemctl restart inference-worker.service"
