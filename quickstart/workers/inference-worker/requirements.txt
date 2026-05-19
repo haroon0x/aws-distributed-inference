@@ -1,0 +1,7 @@
+iii-sdk==0.12.0
+watchfiles
+transformers
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.12.0+cpu
+gguf
+accelerate

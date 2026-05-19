@@ -1,0 +1,15 @@
+[Unit]
+Description=iii engine
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/alchemyst-ai/may-2026/devops/quickstart
+ExecStart=/usr/local/bin/iii --config /opt/alchemyst-ai/may-2026/devops/quickstart/config.aws.yaml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

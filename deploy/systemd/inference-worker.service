@@ -1,0 +1,16 @@
+[Unit]
+Description=Alchemyst inference worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/alchemyst-ai/may-2026/devops/quickstart/workers/inference-worker
+EnvironmentFile=/etc/alchemyst/inference-worker.env
+ExecStart=/opt/alchemyst-ai/may-2026/devops/quickstart/workers/inference-worker/.venv/bin/python inference_worker.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

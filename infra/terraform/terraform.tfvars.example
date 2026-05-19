@@ -1,0 +1,8 @@
+aws_region       = "us-east-1"
+project_name     = "alchemyst-devops"
+key_name         = "replace-with-existing-ec2-keypair"
+allowed_ssh_cidr = "replace-with-your-public-ip/32"
+
+# t3.medium was preferred, but this account restricts EC2 launches to free-tier-eligible types.
+# c7i-flex.large is the smallest x86_64 free-tier-eligible type with enough RAM headroom for inference.
+inference_instance_type = "c7i-flex.large"

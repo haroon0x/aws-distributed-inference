@@ -1,0 +1,19 @@
+# Local Terraform state and plans must not be committed.
+infra/terraform/.terraform/
+infra/terraform/terraform.tfvars
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/tfplan*
+
+# Local dependency/build artifacts.
+quickstart/workers/caller-worker/node_modules/
+quickstart/workers/caller-worker/dist/
+quickstart/workers/inference-worker/.venv/
+quickstart/workers/inference-worker/__pycache__/
+*.pyc
+
+# Credentials.
+*.pem
+*.key
+.env
+.env.*
