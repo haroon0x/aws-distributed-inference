@@ -168,6 +168,22 @@ Observed response shape:
 
 Inference uses `c7i-flex.large` because this AWS account rejects `t3.medium` as not free-tier-eligible, while `t3.micro`/`t3.small` have too little memory headroom for the model load. Observed inference worker memory after load: about 1.8 GiB current, 2.7 GiB peak.
 
+Quick verification commands:
+
+```bash
+make health
+make smoke
+make status
+```
+
+Operational docs:
+
+```text
+docs/runbook.md
+docs/security.md
+docs/implementation-plan.md
+```
+
 ## AWS Redeploy From Scratch
 
 1. Configure AWS credentials:
