@@ -4,6 +4,8 @@ Private AWS worker mesh for the `quickstart` distributed inference prototype. A 
 
 ## Architecture
 
+Rendered diagram: [docs/architecture.md](docs/architecture.md)
+
 ```text
 Internet
   |
@@ -179,9 +181,11 @@ make status
 Operational docs:
 
 ```text
+docs/architecture.md
 docs/runbook.md
 docs/security.md
 docs/implementation-plan.md
+concern.md
 ```
 
 ## AWS Redeploy From Scratch
@@ -212,17 +216,48 @@ docs/implementation-plan.md
    terraform apply
    ```
 
-5. On `engine-vm`, run iii with `quickstart/config.aws.yaml`.
-
-6. On `caller-worker-vm` and `inference-worker-vm`, set:
+5. Read the Terraform outputs:
 
    ```bash
-   III_URL=ws://<engine-private-ip>:49134
+   terraform output
    ```
 
-7. Deploy app code to VMs and enable systemd units from `deploy/systemd`.
+   The output IPs are the source of truth for each deployment. Public and private IPs can change after `terraform destroy` and a fresh `terraform apply`.
 
-8. Use Terraform output `gateway_public_dns` in the curl command above.
+6. Deploy app code and systemd services.
+
+   Preferred automated path:
+
+   ```bash
+   KEY_PATH=/path/to/key.pem \
+   GATEWAY_HOST=<gateway-public-ip> \
+   ENGINE_HOST=<engine-private-ip> \
+   CALLER_HOST=<caller-private-ip> \
+   INFERENCE_HOST=<inference-private-ip> \
+   ./scripts/deploy-workers.sh
+   ```
+
+   This script configures nginx, copies the repo through the gateway, installs worker dependencies, enables systemd services, and waits for iii functions to register.
+
+7. If the automated script fails in a fresh environment, use the manual fallback in [concern.md](concern.md). The fallback is the same deployment flow split into SSH/debuggable steps.
+
+8. Verify:
+
+   ```bash
+   ./scripts/smoke-test.sh http://<gateway-public-ip>
+   ```
+
+## IP Address Stability
+
+The current live URL is:
+
+```text
+http://13.206.255.84/v1/chat/completions
+```
+
+This IP stays valid while the current gateway instance is running. If the stack is destroyed and recreated, AWS may assign new public and private IPs. Run `terraform output` after each new apply and use those values in the README/curl/deploy script.
+
+For a longer-lived deployment, attach an Elastic IP or Route 53 DNS record to the gateway.
 
 ## Production Hardening
 

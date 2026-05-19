@@ -41,7 +41,7 @@ alchemyst-devops-inference  private IP only, running
 Set the local key path:
 
 ```bash
-KEY=/path/to/devops-assignment-key.pem
+KEY=/path/to/key.pem
 GATEWAY=13.206.255.84
 ```
 
